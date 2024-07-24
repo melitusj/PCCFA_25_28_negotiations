@@ -3,8 +3,9 @@ title: "PCC Budget History Analysis"
 author: "Melissa Anderson"
 date: "`r Sys.Date()`"
 output:
-  pdf_document: default
   html_document: default
+  word_document: default
+  pdf_document: default
 ---
 
 ```{r setup, include=FALSE}
@@ -18,8 +19,80 @@ library(kableExtra)
 library(ggplot2)
 library(scales)
 
+#load in CFT Budget Data
 budget_data <- read_excel(here("data", "Budget Data.xlsx"))
+salary_data_2324 <- read_excel(here("data", "CFT Time Series (Clean).xlsx"), sheet = "2324")
+salary_data_2223 <- read_excel(here("data", "CFT Time Series (Clean).xlsx"), sheet = "2223")
+salary_data_2122 <- read_excel(here("data", "CFT Time Series (Clean).xlsx"), sheet = "2122")
+salary_data_2021 <- read_excel(here("data", "CFT Time Series (Clean).xlsx"), sheet = "2021")
+salary_data_1920 <- read_excel(here("data", "CFT Time Series (Clean).xlsx"), sheet = "1920")
+salary_data_1819 <- read_excel(here("data", "CFT Time Series (Clean).xlsx"), sheet = "1819")
+salary_data_1718 <- read_excel(here("data", "CFT Time Series (Clean).xlsx"), sheet = "1718")
 
+#Merge Data into a single data frame
+all_salary <- full_join(salary_data_2324,salary_data_2223)
+all_salary <- full_join(all_salary,salary_data_2122)
+all_salary <- full_join(all_salary,salary_data_2021)
+all_salary <- full_join(all_salary,salary_data_1920)
+all_salary <- full_join(all_salary,salary_data_1819)
+all_salary <- full_join(all_salary,salary_data_1718)
+
+district_basics <- select(all_salary,1,2,3,4)
+
+only_salary <- all_salary %>% select(contains("Salary"))
+only_salary <- as.data.frame(c(district_basics, only_salary))
+only_salary_long <- pivot_longer(data = only_salary, 
+                                    cols = "X2324_Salary_MA_0_1":"X1718_Salary_Doctorate_Max",
+                                    names_to = "classification",
+                                    values_to = "salary")
+
+only_salary_long <- only_salary_long %>% 
+  mutate(classification = str_replace(classification, pattern = "X2324_", replacement = "2023-"))
+only_salary_long <- only_salary_long %>% 
+  mutate(classification = str_replace(classification, pattern = "X2223_", replacement = "2022-"))
+only_salary_long <- only_salary_long %>% 
+  mutate(classification = str_replace(classification, pattern = "X2122_", replacement = "2021-"))
+only_salary_long <- only_salary_long %>% 
+  mutate(classification = str_replace(classification, pattern = "X2021_", replacement = "2020-"))
+only_salary_long <- only_salary_long %>% 
+  mutate(classification = str_replace(classification, pattern = "X1920_", replacement = "2019-"))
+only_salary_long <- only_salary_long %>% 
+  mutate(classification = str_replace(classification, pattern = "X1819_", replacement = "2018-"))
+only_salary_long <- only_salary_long %>% 
+  mutate(classification = str_replace(classification, pattern = "X1718_", replacement = "2017-"))
+
+only_salary_long <- only_salary_long %>% 
+  tidyr::separate(classification, into = c("year", "classification"), sep = "-")
+
+```
+
+```{r}
+only_salary_long %>%
+  group_by(classification, year) %>%
+  summarize(mean_salary =  mean(salary, na.rm = TRUE))%>%
+  kable()
+```
+
+
+
+
+```{r echo=FALSE}
+
+PCC_only_salary_long <- only_salary_long %>% 
+  filter(District == "Pasadena Area")
+
+ggplot(data = PCC_only_salary_long, aes(x = year, y = salary, color= classification)) +
+  geom_point() +
+    scale_y_continuous("Actual Income - Actual Expenses",
+    labels = scales::label_dollar()
+    ) +
+  theme_minimal() +
+  facet_wrap(~ classification)
+```
+
+
+```{r}
+#Import and organize Budget Data
 budget_differential <- budget_data %>%
   mutate(Actual_Cost_minus_expenses = `Actual Total Income`- `Actual Total Expenses`,
          Budget_Cost_minus_expenses = `Budget Total Income`- `Budget Total Expenses`)
@@ -35,6 +108,8 @@ actual_differential <- budget_clean %>%
 
 actual_differential <- actual_differential%>% filter(!is.na(Amount))
 ```
+
+
 ## The District's Income Has Significantly Exceeded Its Expenses Since 2015
 
 ```{r echo=FALSE}
