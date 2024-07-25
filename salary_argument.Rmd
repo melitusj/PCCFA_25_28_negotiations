@@ -1,0 +1,109 @@
+---
+title: "How Big is the Pie?"
+author: "Melissa Anderson"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+#install libraries
+library(readxl)
+library(tidyverse)
+library(here)
+library(readxl)
+library(kableExtra)
+library(ggplot2)
+library(scales)
+library(dplyr)
+library(formattable)
+
+```
+
+# How Enrollment Changing?
+* FTES over time
+* FTES per student over time
+* FTES forecast??
+
+# How Have Total Income/Expenses Changed?
+```{r budget_time_plot, echo=FALSE}
+#load in inflation data
+inflation_coefficients <- read_excel(here("data", "Inflation Coefficients.xlsx"))
+
+#load in CFT Budget Data
+budget_data <- read_excel(here("data", "Budget Data.xlsx"))
+
+#create data frame for plot
+by <- join_by(Year)
+budget_data_inf <- left_join(budget_data,inflation_coefficients,by)
+budget_data_inf <- budget_data_inf %>% 
+  mutate(
+    actual_total_income_inf = `Actual Total Income` * `Inflation Coeff`,
+    actual_total_expenses_inf = `Actual Total Expenses` * `Inflation Coeff`,
+    actual_total_compensation_inf = `Actual Total Compensation` * `Inflation Coeff`
+  )
+
+actuals_data_inf <- budget_data_inf %>% select(Year, `Actual Total Income`, `Actual Total Expenses`, `Actual Total Compensation`, actual_total_income_inf, actual_total_expenses_inf, actual_total_compensation_inf)
+
+actuals_data_inf_long <- pivot_longer(data = actuals_data_inf, 
+                                    cols = actual_total_income_inf:actual_total_compensation_inf,
+                                    names_to = "category",
+                                    values_to = "amount")
+
+ggplot(data = subset(actuals_data_inf_long, !is.na(amount)), aes(x = Year, y = amount, color = category)) +
+  geom_line() +
+    scale_y_continuous("Amounts",
+    labels = scales::label_dollar()
+    ) +
+  theme_minimal() + 
+  theme(legend.position="bottom")
+
+```
+
+**Figure 1:** Total Income, Expenses and Compensation Expenses over time. Values are adjusted to 2024 dollars to remove the effect of inflation. *(Source: https://pasadena.edu/business-administrative-services/fiscal-services/budget-forecast-analysis.php)* 
+
+# How Much Is Available?
+
+```{r how_much_is_left, echo=FALSE}
+
+a = 10
+pa = a/100
+b = 1 + pa
+f = 1.5
+
+reserve_inf <- budget_data_inf %>% select(Year, actual_total_income_inf, actual_total_expenses_inf, actual_total_compensation_inf)
+
+reserve_inf <- reserve_inf %>% 
+  filter(!is.na(actual_total_income_inf))
+
+reserve_inf <- reserve_inf %>% 
+  mutate(
+    total_reserve = actual_total_income_inf - actual_total_expenses_inf,
+    p_reserve = actual_total_income_inf/actual_total_expenses_inf - 1,
+    excess = (actual_total_income_inf - actual_total_expenses_inf - pa*actual_total_compensation_inf)/actual_total_expenses_inf,
+    excess2 = (actual_total_income_inf - actual_total_expenses_inf - pa*actual_total_compensation_inf/f)/actual_total_expenses_inf
+  )
+
+  
+reserve_diff_inf <- reserve_inf %>% select(Year, total_reserve, p_reserve, excess, excess2)
+reserve_diff_inf$total_reserve <- currency(reserve_diff_inf$total_reserve, digits = 0L)
+reserve_diff_inf$p_reserve <- percent(reserve_diff_inf$p_reserve,1)
+reserve_diff_inf$excess <- percent(reserve_diff_inf$excess, 1)
+reserve_diff_inf$excess2 <- percent(reserve_diff_inf$excess2, 1)
+
+reserve_diff_inf %>%
+  kbl(caption = "Table 1: Non-Expense Income and Amounts Left Over After Expenses are Deducted (2024 Dollars)", centering = TRUE,col.names = c("Year", "Total Left", "% of Total Expenses", "Minus Raise A*", "Minus Raise B*"), position = "left") %>%
+  kable_classic(full_width = F, html_font = "Cambria")
+
+```
+
+* Percentage of Total Expenses (i.e. "Reserve") Left after a (A) `r a`%  or (B) `r round(a/f,1)`%  Increase in Total Compensation. *(Source: https://pasadena.edu/business-administrative-services/fiscal-services/budget-forecast-analysis.php)* 
+
+# How Do We Compare?
+* FTES/Student of all and "peer" districts (this year)
+* Comparison of PCC salaries with all and peer districts, with and without adjustment for cost of living
+
+# Recommendations
+
+
