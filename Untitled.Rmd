@@ -1,0 +1,120 @@
+---
+title: "Article 12 (Salary Schedule) Data"
+author: "Melissa Anderson, Ph.D."
+date: "`r Sys.Date()`"
+output:
+  pdf_document: default
+  html_document: default
+  word_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+#install libraries
+library(readxl)
+library(tidyverse)
+library(here)
+library(readxl)
+library(kableExtra)
+library(ggplot2)
+library(scales)
+library(dplyr)
+library(formattable)
+library(tinytex)
+
+#load in inflation data
+inflation_coefficients <- read_excel(here("data", "Inflation Coefficients.xlsx"))
+
+#load in CFT Budget Data
+budget_data <- read_excel(here("data", "Budget Data.xlsx"))
+salary_data_2324 <- read_excel(here("data", "CFT Time Series (Clean).xlsx"), sheet = "2324")
+salary_data_2223 <- read_excel(here("data", "CFT Time Series (Clean).xlsx"), sheet = "2223")
+salary_data_2122 <- read_excel(here("data", "CFT Time Series (Clean).xlsx"), sheet = "2122")
+salary_data_2021 <- read_excel(here("data", "CFT Time Series (Clean).xlsx"), sheet = "2021")
+salary_data_1920 <- read_excel(here("data", "CFT Time Series (Clean).xlsx"), sheet = "1920")
+salary_data_1819 <- read_excel(here("data", "CFT Time Series (Clean).xlsx"), sheet = "1819")
+salary_data_1718 <- read_excel(here("data", "CFT Time Series (Clean).xlsx"), sheet = "1718")
+
+#Merge Data into a single data frame
+by = join_by(District)
+all_data <- full_join(salary_data_2324,salary_data_2223, by)
+all_data <- full_join(all_data,salary_data_2122, by)
+all_data <- full_join(all_data,salary_data_2021, by)
+all_data <- full_join(all_data,salary_data_1920, by)
+all_data <- full_join(all_data,salary_data_1819, by)
+all_data <- full_join(all_data,salary_data_1718, by)
+
+#Select Salary Data and Make Long Version
+all_data_salary <- select(all_data, District, Adjustment, contains("Salary"))
+all_data_salary_long <- pivot_longer(data = all_data_salary, 
+                              cols =  "2324_Salary_MA_0_1":"1718_Salary_Doctorate_Max",
+                              names_to = "category",
+                              values_to = "salary")
+#Create Year/Classification Columns
+all_data_salary_long <- all_data_salary_long %>% 
+  mutate(category = str_replace(category, pattern = "2324_", replacement = "2023-"))
+all_data_salary_long <- all_data_salary_long %>% 
+  mutate(category = str_replace(category, pattern = "2223_", replacement = "2022-"))
+all_data_salary_long <- all_data_salary_long %>% 
+  mutate(category = str_replace(category, pattern = "2122_", replacement = "2021-"))
+all_data_salary_long <- all_data_salary_long %>% 
+  mutate(category = str_replace(category, pattern = "2021_", replacement = "2020-"))
+all_data_salary_long <- all_data_salary_long %>% 
+  mutate(category = str_replace(category, pattern = "1920_", replacement = "2019-"))
+all_data_salary_long <- all_data_salary_long %>% 
+  mutate(category = str_replace(category, pattern = "1819_", replacement = "2018-"))
+all_data_salary_long <- all_data_salary_long %>% 
+  mutate(category = str_replace(category, pattern = "1718_", replacement = "2017-"))
+
+all_data_salary_long <- all_data_salary_long %>% 
+  tidyr::separate(category, into = c("year", "classification"), sep = "-")
+all_data_salary_long <- all_data_salary_long %>% 
+  mutate(year = as.numeric(year) )
+
+#add in inflation coefficients
+by <- join_by(year == Year)
+all_data_salary_long <- left_join(all_data_salary_long,inflation_coefficients,by)
+
+```
+
+# PCC full-time salaries are low compared to neighboring districts
+
+```{r echo=FALSE}
+#Identify Peer Districts
+set.seed(32)
+
+data_classification <- select(all_data, District, Zip, Adjustment, "2324_FTES", "2324_General_Fund_Revenue")
+data_classification <- data_classification %>% 
+  filter(District != "California Online (Calbright)")
+data_classification <- data_classification %>% 
+  mutate(Zip = as.numeric(Zip))
+
+data_classification_scaled <- scale(data_classification[,2])
+
+kmi <- kmeans(data_classification_scaled, 3)
+clusters <- data.frame(data_classification$District, kmi$cluster)
+
+
+#aggregate district/classification data
+all_data_salary_long$salary <- currency(all_data_salary_long$salary, digits = 0L)
+X2023_data_salary_long <- all_data_salary_long %>% 
+  filter(year == 2023)
+X2023_data_salary_long <- X2023_data_salary_long %>% 
+  mutate(salary_COL = salary/Adjustment)
+
+X2023_data_salary_long <- X2023_data_salary_long[order(X2023_data_salary_long$salary_COL),]
+
+X2023_data_salary_long_plot <- X2023_data_salary_long %>%
+  group_by(District) %>%
+  summarize(mean_salary = mean(salary),
+            mean_salary_COL = mean(salary_COL))
+
+X2023_data_salary_long_plot <- X2023_data_salary_long_plot[order(X2023_data_salary_long_plot$mean_salary_COL, decreasing = TRUE),]
+
+#add in district geographical classification
+by <- join_by(District == data_classification.District)
+X2023_data_salary_long_plot <- left_join(X2023_data_salary_long_plot,clusters,by)
+
+X2023_data_salary_long_plot <- X2023_data_salary_long_plot %>% 
+  filter(kmi.cluster == 2)

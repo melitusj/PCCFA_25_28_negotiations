@@ -1,8 +1,11 @@
 ---
-title: "How Big is the Pie?"
-author: "Melissa Anderson"
+title: "Article 12 (Salary Schedule) Data"
+author: "Melissa Anderson, Ph.D."
 date: "`r Sys.Date()`"
-output: html_document
+output:
+  html_document: default
+  pdf_document: default
+  word_document: default
 ---
 
 ```{r setup, include=FALSE}
@@ -18,19 +21,157 @@ library(ggplot2)
 library(scales)
 library(dplyr)
 library(formattable)
+library(tinytex)
 
-```
-
-# How Enrollment Changing?
-* FTES over time
-* FTES per student over time
-* FTES forecast??
-
-# How Have Total Income/Expenses Changed?
-```{r budget_time_plot, echo=FALSE}
 #load in inflation data
 inflation_coefficients <- read_excel(here("data", "Inflation Coefficients.xlsx"))
 
+#load in CFT Budget Data
+budget_data <- read_excel(here("data", "Budget Data.xlsx"))
+salary_data_2324 <- read_excel(here("data", "CFT Time Series (Clean).xlsx"), sheet = "2324")
+salary_data_2223 <- read_excel(here("data", "CFT Time Series (Clean).xlsx"), sheet = "2223")
+salary_data_2122 <- read_excel(here("data", "CFT Time Series (Clean).xlsx"), sheet = "2122")
+salary_data_2021 <- read_excel(here("data", "CFT Time Series (Clean).xlsx"), sheet = "2021")
+salary_data_1920 <- read_excel(here("data", "CFT Time Series (Clean).xlsx"), sheet = "1920")
+salary_data_1819 <- read_excel(here("data", "CFT Time Series (Clean).xlsx"), sheet = "1819")
+salary_data_1718 <- read_excel(here("data", "CFT Time Series (Clean).xlsx"), sheet = "1718")
+
+#Merge Data into a single data frame
+by = join_by(District)
+all_data <- full_join(salary_data_2324,salary_data_2223, by)
+all_data <- full_join(all_data,salary_data_2122, by)
+all_data <- full_join(all_data,salary_data_2021, by)
+all_data <- full_join(all_data,salary_data_1920, by)
+all_data <- full_join(all_data,salary_data_1819, by)
+all_data <- full_join(all_data,salary_data_1718, by)
+
+#Select Salary Data and Make Long Version
+all_data_salary <- select(all_data, District, Adjustment, contains("Salary"))
+all_data_salary_long <- pivot_longer(data = all_data_salary, 
+                              cols =  "2324_Salary_MA_0_1":"1718_Salary_Doctorate_Max",
+                              names_to = "category",
+                              values_to = "salary")
+#Create Year/Classification Columns
+all_data_salary_long <- all_data_salary_long %>% 
+  mutate(category = str_replace(category, pattern = "2324_", replacement = "2023-"))
+all_data_salary_long <- all_data_salary_long %>% 
+  mutate(category = str_replace(category, pattern = "2223_", replacement = "2022-"))
+all_data_salary_long <- all_data_salary_long %>% 
+  mutate(category = str_replace(category, pattern = "2122_", replacement = "2021-"))
+all_data_salary_long <- all_data_salary_long %>% 
+  mutate(category = str_replace(category, pattern = "2021_", replacement = "2020-"))
+all_data_salary_long <- all_data_salary_long %>% 
+  mutate(category = str_replace(category, pattern = "1920_", replacement = "2019-"))
+all_data_salary_long <- all_data_salary_long %>% 
+  mutate(category = str_replace(category, pattern = "1819_", replacement = "2018-"))
+all_data_salary_long <- all_data_salary_long %>% 
+  mutate(category = str_replace(category, pattern = "1718_", replacement = "2017-"))
+
+all_data_salary_long <- all_data_salary_long %>% 
+  tidyr::separate(category, into = c("year", "classification"), sep = "-")
+all_data_salary_long <- all_data_salary_long %>% 
+  mutate(year = as.numeric(year) )
+
+#add in inflation coefficients
+by <- join_by(year == Year)
+all_data_salary_long <- left_join(all_data_salary_long,inflation_coefficients,by)
+
+```
+
+# PCC full-time salaries are low compared to neighboring districts
+
+```{r echo=FALSE}
+#Identify Peer Districts
+set.seed(32)
+
+data_classification <- select(all_data, District, Zip, Adjustment, "2324_FTES", "2324_General_Fund_Revenue")
+data_classification <- data_classification %>% 
+  filter(District != "California Online (Calbright)")
+data_classification <- data_classification %>% 
+  mutate(Zip = as.numeric(Zip))
+
+data_classification_scaled <- scale(data_classification[,2])
+
+kmi <- kmeans(data_classification_scaled, 3)
+clusters <- data.frame(data_classification$District, kmi$cluster)
+
+
+#aggregate district/classification data
+all_data_salary_long$salary <- currency(all_data_salary_long$salary, digits = 0L)
+X2023_data_salary_long <- all_data_salary_long %>% 
+  filter(year == 2023)
+X2023_data_salary_long <- X2023_data_salary_long %>% 
+  mutate(salary_COL = salary/Adjustment)
+
+X2023_data_salary_long <- X2023_data_salary_long[order(X2023_data_salary_long$salary_COL),]
+
+X2023_data_salary_long_plot <- X2023_data_salary_long %>%
+  group_by(District) %>%
+  summarize(mean_salary = mean(salary),
+            mean_salary_COL = mean(salary_COL))
+
+X2023_data_salary_long_plot <- X2023_data_salary_long_plot[order(X2023_data_salary_long_plot$mean_salary_COL, decreasing = TRUE),]
+
+#add in district geographical classification
+by <- join_by(District == data_classification.District)
+X2023_data_salary_long_plot <- left_join(X2023_data_salary_long_plot,clusters,by)
+
+X2023_data_salary_long_plot <- X2023_data_salary_long_plot %>% 
+  filter(kmi.cluster == 2)
+
+X2023_data_salary_long_plot[,1:3] %>% kbl(caption = "Table 2: Area CCC District Representive Salaries During the 2023-204 Academic Year Before and After Adjustment for Local Cost of Living", centering = TRUE,col.names = c("District", "Aggregate Salary", "Adjusted Aggregate Salary"), position = "left") %>%
+  kable_classic(full_width = T) %>%
+  row_spec(8, bold = T, color = "white", background = "#9c1521")
+
+  
+
+
+```
+
+* Aggregate Salary is composite value made by averaging values for the five representative salary steps found in the CFT Salary Report.  *(Data Source: https://www.cft.org/faculty-salary-comparisons)* 
+
+
+
+# PCC full-time salaries have not significantly increased relative to inflation
+
+```{r echo=FALSE}
+PCC_data_salary_long <- all_data_salary_long %>% 
+  filter(District == "Pasadena Area")
+
+
+PCC_data_salary_long <- PCC_data_salary_long %>% 
+  mutate(
+    salary_inf = salary * `Inflation Coeff`
+  )
+
+PCC_data_salary_long_plot <- PCC_data_salary_long %>%
+  group_by(year) %>%
+  summarize(mean_salary_inf = mean(salary_inf))
+
+initial_salary <- PCC_data_salary_long_plot$mean_salary_inf[1]
+salary_range <-  PCC_data_salary_long_plot$mean_salary_inf[1]
+  #max(PCC_data_salary_long_plot$mean_salary_inf)-min(PCC_data_salary_long_plot$mean_salary_inf)        #sd(PCC_data_salary_long_plot$mean_salary_inf)
+
+PCC_data_salary_long_plot <- PCC_data_salary_long_plot %>% 
+  mutate(
+    rel_mean_salary_inf = (mean_salary_inf - initial_salary)/salary_range
+  )
+
+
+ggplot(data = PCC_data_salary_long_plot, aes(x = year, y = rel_mean_salary_inf)) +
+  geom_line(color = "#9c1521") +
+    scale_y_continuous("Relative Change",
+                       labels = scales::percent) +
+  theme_minimal() + 
+  theme(legend.position="bottom")
+```
+
+**Figure 1:** Relative Changes in Aggregate Salary of Full-Time PCC Faculty since 2017. Aggregate Salary is composite value made by averaging values for the five representative salary steps found in the CFT Salary Report. (Data Source: https://www.cft.org/faculty-salary-comparisons)
+
+
+
+# The District has seen a significant increase in income relative to expenses and total compensation
+```{r budget_time_plot, echo=FALSE}
 #load in CFT Budget Data
 budget_data <- read_excel(here("data", "Budget Data.xlsx"))
 
@@ -61,16 +202,18 @@ ggplot(data = subset(actuals_data_inf_long, !is.na(amount)), aes(x = Year, y = a
 
 ```
 
-**Figure 1:** Total Income, Expenses and Compensation Expenses over time. Values are adjusted to 2024 dollars to remove the effect of inflation. *(Source: https://pasadena.edu/business-administrative-services/fiscal-services/budget-forecast-analysis.php)* 
+**Figure 2:** Total Income, Expenses and Compensation Expenses over time. Values have been adjusted to 2024 dollars to remove the effect of inflation. *(Data Source: https://pasadena.edu/business-administrative-services/fiscal-services/budget-forecast-analysis.php)* 
 
-# How Much Is Available?
+
+
+# Extra funds could be used for a significant increase to total compensation
 
 ```{r how_much_is_left, echo=FALSE}
 
 a = 10
 pa = a/100
 b = 1 + pa
-f = 1.5
+f = 2
 
 reserve_inf <- budget_data_inf %>% select(Year, actual_total_income_inf, actual_total_expenses_inf, actual_total_compensation_inf)
 
@@ -94,16 +237,13 @@ reserve_diff_inf$excess2 <- percent(reserve_diff_inf$excess2, 1)
 
 reserve_diff_inf %>%
   kbl(caption = "Table 1: Non-Expense Income and Amounts Left Over After Expenses are Deducted (2024 Dollars)", centering = TRUE,col.names = c("Year", "Total Left", "% of Total Expenses", "Minus Raise A*", "Minus Raise B*"), position = "left") %>%
-  kable_classic(full_width = F, html_font = "Cambria")
+  kable_classic(full_width = T)
 
 ```
 
-* Percentage of Total Expenses (i.e. "Reserve") Left after a (A) `r a`%  or (B) `r round(a/f,1)`%  Increase in Total Compensation. *(Source: https://pasadena.edu/business-administrative-services/fiscal-services/budget-forecast-analysis.php)* 
+* Percentage of Total Expenses (i.e. "Reserve") Left after a (A) `r a`%  or (B) `r round(a/f,1)`%  Increase in Total Compensation. *(Data Source: https://pasadena.edu/business-administrative-services/fiscal-services/budget-forecast-analysis.php)* 
 
-# How Do We Compare?
-* FTES/Student of all and "peer" districts (this year)
-* Comparison of PCC salaries with all and peer districts, with and without adjustment for cost of living
-
-# Recommendations
-
-
+# Useful Links
+* *Update on community college reserves.* https://lao.ca.gov/Publications/Report/4323. (January 27, 2021)
+* *Faculty salary comparison studies. CFT – a Union of Educators and Classified Professionals.* https://www.cft.org/faculty-salary-comparisons. 
+* *Budget / Forecast & Analysis - Business and Administrative Services - Pasadena City College.* https://pasadena.edu/business-administrative-services/fiscal-services/budget-forecast-analysis.php.
