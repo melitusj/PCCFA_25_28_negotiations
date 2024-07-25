@@ -19,6 +19,9 @@ library(kableExtra)
 library(ggplot2)
 library(scales)
 
+#load in inflation data
+inflation_coefficients <- read_excel(here("data", "Inflation Coefficients.xlsx"))
+
 #load in CFT Budget Data
 budget_data <- read_excel(here("data", "Budget Data.xlsx"))
 salary_data_2324 <- read_excel(here("data", "CFT Time Series (Clean).xlsx"), sheet = "2324")
@@ -30,16 +33,16 @@ salary_data_1819 <- read_excel(here("data", "CFT Time Series (Clean).xlsx"), she
 salary_data_1718 <- read_excel(here("data", "CFT Time Series (Clean).xlsx"), sheet = "1718")
 
 #Merge Data into a single data frame
-all_salary <- full_join(salary_data_2324,salary_data_2223)
-all_salary <- full_join(all_salary,salary_data_2122)
-all_salary <- full_join(all_salary,salary_data_2021)
-all_salary <- full_join(all_salary,salary_data_1920)
-all_salary <- full_join(all_salary,salary_data_1819)
-all_salary <- full_join(all_salary,salary_data_1718)
+all_data <- full_join(salary_data_2324,salary_data_2223)
+all_data <- full_join(all_data,salary_data_2122)
+all_data <- full_join(all_data,salary_data_2021)
+all_data <- full_join(all_data,salary_data_1920)
+all_data <- full_join(all_data,salary_data_1819)
+all_data <- full_join(all_data,salary_data_1718)
 
-district_basics <- select(all_salary,1,2,3,4)
+district_basics <- select(all_data,1,2,3,4)
 
-only_salary <- all_salary %>% select(contains("Salary"))
+only_salary <- all_data %>% select(contains("Salary"))
 only_salary <- as.data.frame(c(district_basics, only_salary))
 only_salary_long <- pivot_longer(data = only_salary, 
                                     cols = "X2324_Salary_MA_0_1":"X1718_Salary_Doctorate_Max",
@@ -66,12 +69,69 @@ only_salary_long <- only_salary_long %>%
 
 ```
 
+## How has the average CCC salary changed over time?
+
+
 ```{r}
-only_salary_long %>%
+salary_by_year <- only_salary_long %>%
   group_by(classification, year) %>%
-  summarize(mean_salary =  mean(salary, na.rm = TRUE))%>%
-  kable()
+  summarize(mean_salary =  mean(salary, na.rm = TRUE))
+
+PCC_only_salary_long <- only_salary_long %>% 
+  filter(District == "Pasadena Area")
+
+ggplot() +
+  geom_point(data = salary_by_year, aes(x = year, y = mean_salary)) +
+  geom_point(data = PCC_only_salary_long, aes(x = year, y = salary, color = "PCC")) +
+    scale_y_continuous("Actual Income - Actual Expenses",
+    labels = scales::label_dollar()
+    ) +
+  theme_minimal() +
+  facet_wrap(~ classification) 
+
 ```
+
+## Which CCC salaries have been keeping pace with inflation?
+```{r}
+
+#correct value type for year
+only_salary_long <- only_salary_long %>% 
+  mutate(
+    year = as.numeric(only_salary_long$year)
+  )
+
+#add in inflation coefficients
+by <- join_by(year == Year)
+only_salary_long_coeff <- left_join(only_salary_long,inflation_coefficients,by)
+
+#add in columns for inflation and cost of living adjustments
+
+only_salary_long_adj <- only_salary_long_coeff %>% 
+  mutate(
+    salary_adj_inf = salary * `Inflation Coeff`,
+    salary_adj_COL = salary/Adjustment,
+    salary_adj_inf_COL = (salary * `Inflation Coeff`) / Adjustment
+  )
+
+salary_by_year_adj <- only_salary_long_adj %>%
+  group_by(classification, year) %>%
+  summarize(mean_salary_adj_inf =  mean(salary_adj_inf, na.rm = TRUE))
+
+PCC_only_salary_adj <- only_salary_long_adj %>% 
+  filter(District == "Pasadena Area")
+
+ggplot() +
+  geom_point(data = salary_by_year_adj, aes(x = year, y = mean_salary_adj_inf)) +
+  geom_point(data = PCC_only_salary_adj, aes(x = year, y = salary_adj_inf, color = "PCC")) +
+    scale_y_continuous("Salaries",
+    labels = scales::label_dollar()
+    ) +
+  theme_minimal() +
+  facet_wrap(~ classification) 
+
+```
+
+
 
 
 
