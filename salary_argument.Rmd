@@ -4,8 +4,8 @@ author: "Melissa Anderson, Ph.D."
 date: "`r Sys.Date()`"
 output:
   html_document: default
-  pdf_document: default
   word_document: default
+  pdf_document: default
 ---
 
 ```{r setup, include=FALSE}
@@ -81,6 +81,7 @@ all_data_salary_long <- left_join(all_data_salary_long,inflation_coefficients,by
 # PCC full-time salaries are low compared to neighboring districts
 
 ```{r echo=FALSE}
+
 #Identify Peer Districts
 set.seed(32)
 
@@ -119,7 +120,7 @@ X2023_data_salary_long_plot <- left_join(X2023_data_salary_long_plot,clusters,by
 X2023_data_salary_long_plot <- X2023_data_salary_long_plot %>% 
   filter(kmi.cluster == 2)
 
-X2023_data_salary_long_plot[,1:3] %>% kbl(caption = "Table 2: Area CCC District Representive Salaries During the 2023-204 Academic Year Before and After Adjustment for Local Cost of Living", centering = TRUE,col.names = c("District", "Aggregate Salary", "Adjusted Aggregate Salary"), position = "left") %>%
+X2023_data_salary_long_plot[,1:3] %>% kbl(caption = "Table 1: Area CCC District Representative Salaries During the 2023-204 Academic Year Before and After Adjustment for Local Cost of Living", centering = TRUE,col.names = c("District", "Aggregate Salary", "Adjusted Aggregate Salary"), position = "left") %>%
   kable_classic(full_width = T) %>%
   row_spec(8, bold = T, color = "white", background = "#9c1521")
 
@@ -134,7 +135,7 @@ X2023_data_salary_long_plot[,1:3] %>% kbl(caption = "Table 2: Area CCC District 
 
 # PCC full-time salaries have not significantly increased relative to inflation
 
-```{r echo=FALSE}
+```{r echo=FALSE, fig.width=6,fig.height=2}
 PCC_data_salary_long <- all_data_salary_long %>% 
   filter(District == "Pasadena Area")
 
@@ -171,7 +172,7 @@ ggplot(data = PCC_data_salary_long_plot, aes(x = year, y = rel_mean_salary_inf))
 
 
 # The District has seen a significant increase in income relative to expenses and total compensation
-```{r budget_time_plot, echo=FALSE}
+```{r budget_time_plot, echo=FALSE, fig.width=8,fig.height=2}
 #load in CFT Budget Data
 budget_data <- read_excel(here("data", "Budget Data.xlsx"))
 
@@ -197,13 +198,11 @@ ggplot(data = subset(actuals_data_inf_long, !is.na(amount)), aes(x = Year, y = a
     scale_y_continuous("Amounts",
     labels = scales::label_dollar()
     ) +
-  theme_minimal() + 
-  theme(legend.position="bottom")
+  theme_minimal()
 
 ```
 
 **Figure 2:** Total Income, Expenses and Compensation Expenses over time. Values have been adjusted to 2024 dollars to remove the effect of inflation. *(Data Source: https://pasadena.edu/business-administrative-services/fiscal-services/budget-forecast-analysis.php)* 
-
 
 
 # Extra funds could be used for a significant increase to total compensation
@@ -235,15 +234,17 @@ reserve_diff_inf$p_reserve <- percent(reserve_diff_inf$p_reserve,1)
 reserve_diff_inf$excess <- percent(reserve_diff_inf$excess, 1)
 reserve_diff_inf$excess2 <- percent(reserve_diff_inf$excess2, 1)
 
+
 reserve_diff_inf %>%
   kbl(caption = "Table 1: Non-Expense Income and Amounts Left Over After Expenses are Deducted (2024 Dollars)", centering = TRUE,col.names = c("Year", "Total Left", "% of Total Expenses", "Minus Raise A*", "Minus Raise B*"), position = "left") %>%
   kable_classic(full_width = T)
 
 ```
-
 * Percentage of Total Expenses (i.e. "Reserve") Left after a (A) `r a`%  or (B) `r round(a/f,1)`%  Increase in Total Compensation. *(Data Source: https://pasadena.edu/business-administrative-services/fiscal-services/budget-forecast-analysis.php)* 
 
-# Useful Links
+```{r eval=FALSE, include=FALSE}
+"# Useful Links
 * *Update on community college reserves.* https://lao.ca.gov/Publications/Report/4323. (January 27, 2021)
 * *Faculty salary comparison studies. CFT – a Union of Educators and Classified Professionals.* https://www.cft.org/faculty-salary-comparisons. 
-* *Budget / Forecast & Analysis - Business and Administrative Services - Pasadena City College.* https://pasadena.edu/business-administrative-services/fiscal-services/budget-forecast-analysis.php.
+* *Budget / Forecast & Analysis - Business and Administrative Services - Pasadena City College.* https://pasadena.edu/business-administrative-services/fiscal-services/budget-forecast-analysis.php."
+```
