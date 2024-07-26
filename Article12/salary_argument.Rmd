@@ -135,7 +135,7 @@ X2023_data_salary_long_plot[,1:3] %>% kbl(caption = "Table 1: Area CCC District 
 
 # PCC full-time salaries have not significantly increased relative to inflation
 
-```{r echo=FALSE, fig.width=6,fig.height=2}
+```{r echo=FALSE}
 PCC_data_salary_long <- all_data_salary_long %>% 
   filter(District == "Pasadena Area")
 
@@ -172,7 +172,7 @@ ggplot(data = PCC_data_salary_long_plot, aes(x = year, y = rel_mean_salary_inf))
 
 
 # The District has seen a significant increase in income relative to expenses and total compensation
-```{r budget_time_plot, echo=FALSE, fig.width=8,fig.height=2}
+```{r budget_time_plot, echo=FALSE}
 #load in CFT Budget Data
 budget_data <- read_excel(here("data", "Budget Data.xlsx"))
 
