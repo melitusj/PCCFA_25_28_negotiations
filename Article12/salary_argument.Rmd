@@ -167,7 +167,7 @@ ggplot(data = PCC_data_salary_long_plot, aes(x = year, y = rel_mean_salary_inf))
   theme(legend.position="bottom")
 ```
 
-**Figure 1:** Relative Changes in Aggregate Salary of Full-Time PCC Faculty since 2017. Values aer in 2024 dollars to remove the effect of inflation. Aggregate Salary is composite value made by averaging values for the five representative salary steps found in the CFT Salary Report. (Data Source: https://www.cft.org/faculty-salary-comparisons)
+**Figure 1:** Relative Changes in Aggregate Salary of Full-Time PCC Faculty since 2017. Values are in 2024 dollars to remove the effect of inflation. Aggregate Salary is composite value made by averaging values for the five representative salary steps found in the CFT Salary Report. (Data Source: https://www.cft.org/faculty-salary-comparisons)
 
 
 
