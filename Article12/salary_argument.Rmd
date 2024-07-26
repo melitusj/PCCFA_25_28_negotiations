@@ -236,7 +236,7 @@ reserve_diff_inf$excess2 <- percent(reserve_diff_inf$excess2, 1)
 
 
 reserve_diff_inf %>%
-  kbl(caption = "Table 1: Non-Expense Income and Amounts Left Over After Expenses are Deducted (2024 Dollars)", centering = TRUE,col.names = c("Year", "Total Left", "% of Total Expenses", "Minus Raise A*", "Minus Raise B*"), position = "left") %>%
+  kbl(caption = "Table 1: Amounts of District Income Left Over After Expenses are Deducted (2024 Dollars)", centering = TRUE,col.names = c("Year", "Total Left", "% of Total Expenses", "Minus Raise A*", "Minus Raise B*"), position = "left") %>%
   kable_classic(full_width = T)
 
 ```
